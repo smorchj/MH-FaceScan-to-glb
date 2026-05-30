@@ -118,7 +118,12 @@ export async function mount(container, opts) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
+  // Runtime shadow maps are OFF. On a detailed bust at this scale they were
+  // unavoidably hard/low-res and the frustum clipped the head's shadow into
+  // blocky patches on the neck/shirt as the key light moved. Form comes from
+  // the lighting (n.l) plus the baked scalp/hair/contact AO in COLOR_0 instead,
+  // which is artifact-free at any light or camera angle.
+  renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
   renderer.domElement.style.display = 'block';
@@ -141,13 +146,6 @@ export async function mount(container, opts) {
   const keyLight = new THREE.DirectionalLight(0xfff4e8, 3.6);
   keyLight.position.set(-0.797, 4.2, 2.514);    // upper-left key (direction is
                                                 // re-normalised by model-fit)
-  keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(4096, 4096);
-  Object.assign(keyLight.shadow.camera,
-    { near: 0.5, far: 6, left: -1, right: 1, top: 1.2, bottom: -1.2 });
-  keyLight.shadow.camera.updateProjectionMatrix();
-  keyLight.shadow.bias = -0.0005;
-  keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight);
   const fillLight = new THREE.DirectionalLight(0xcfe0ff, 2.05);
   fillLight.position.set(1.6, 0.1, 1.0);    // cool fill from the right (opp. key)
@@ -177,16 +175,9 @@ export async function mount(container, opts) {
   ]);
 
   scene.add(gltf.scene);
-  // Opaque meshes cast + receive runtime shadows (face self-shadow, nose,
-  // collar). Hair is set to NOT cast in patchMaterials (blocky at shadow-map
-  // res); its soft contact shadow comes from baked AO instead.
-  gltf.scene.traverse((o) => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
-  });
-
-  // Fit lighting to the model bounds: aim every light at the centre and
-  // tighten the key-light shadow camera to the bounds so shadows are sharp
-  // (a huge frustum over a small bust = low-res blur) and soft via PCF radius.
+  // Fit the lighting to the model bounds: aim every light at the centre and
+  // place it at a consistent distance so the key/fill/rim read the same
+  // regardless of model size. (No shadow camera: runtime shadows are off.)
   {
     const box = new THREE.Box3().setFromObject(gltf.scene);
     const ctr = box.getCenter(new THREE.Vector3());
@@ -198,18 +189,6 @@ export async function mount(container, opts) {
       L.target.position.copy(ctr);
       scene.add(L.target);
     }
-    const sc = keyLight.shadow.camera;
-    // Tight shadow frustum around the bust, deliberately smaller than the full
-    // body so the head sits OUTSIDE it and does not cast a hard, low-res shadow
-    // onto the shirt (the face reads from baked AO instead). Realtime shadow map,
-    // softened via PCF radius. Tuned for the head-and-shoulders gallery framing.
-    const sr = Math.min(0.5, r);
-    sc.left = -sr; sc.right = sr; sc.top = sr; sc.bottom = -sr;
-    sc.near = 0.01; sc.far = r * 9;
-    sc.updateProjectionMatrix();
-    keyLight.shadow.radius = 14;           // soft PCF edges
-    keyLight.shadow.bias = -0.0004;
-    keyLight.shadow.normalBias = 0.01;
   }
 
   // Per-character bone pose fixups — MH garments with simulated elements
