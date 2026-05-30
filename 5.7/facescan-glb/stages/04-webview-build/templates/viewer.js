@@ -199,12 +199,17 @@ export async function mount(container, opts) {
       scene.add(L.target);
     }
     const sc = keyLight.shadow.camera;
-    sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r;
+    // Tight shadow frustum around the bust, deliberately smaller than the full
+    // body so the head sits OUTSIDE it and does not cast a hard, low-res shadow
+    // onto the shirt (the face reads from baked AO instead). Realtime shadow map,
+    // softened via PCF radius. Tuned for the head-and-shoulders gallery framing.
+    const sr = Math.min(0.5, r);
+    sc.left = -sr; sc.right = sr; sc.top = sr; sc.bottom = -sr;
     sc.near = 0.01; sc.far = r * 9;
     sc.updateProjectionMatrix();
-    keyLight.shadow.radius = 6;            // soft PCF edges
-    keyLight.shadow.bias = -0.0006;
-    keyLight.shadow.normalBias = 0.02;
+    keyLight.shadow.radius = 14;           // soft PCF edges
+    keyLight.shadow.bias = -0.0004;
+    keyLight.shadow.normalBias = 0.01;
   }
 
   // Per-character bone pose fixups — MH garments with simulated elements
