@@ -1,11 +1,25 @@
 # MH-FaceScan → GLB
 
+<p align="center">
+  <a href="https://smorchj.github.io/MH-FaceScan-to-glb/characters/sander_head__3_/?tune=1">
+    <img src="assets/sander-demo.jpg" alt="Sander, a FaceScan MetaHuman in the three.js viewer" width="78%" />
+  </a>
+</p>
+
 Turn a FaceScan-created UE 5.7 MetaHuman into a web-ready GLB: 51 ARKit
 blendshapes, baked scalp/hair AO, hair-card shading, viewed in a three.js
 viewer with a live tuning panel.
 
 Hook-driven fork of [metahuman-to-glb](https://github.com/smorchj/metahuman-to-glb),
 trimmed to just the FaceScan path.
+
+## Live demo
+
+**https://smorchj.github.io/MH-FaceScan-to-glb/characters/sander_head__3_/?tune=1**
+
+Sander, captured by FaceScan, rigged as a MetaHuman, exported through this
+pipeline. Rendered live in the browser (drag to orbit, `?tune=1` opens the
+lighting / skin AO / hair panel).
 
 ## Pipeline
 
