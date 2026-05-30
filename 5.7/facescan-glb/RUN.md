@@ -56,7 +56,7 @@ Only escalate if detection genuinely fails.
      Repeat until exit 0, or escalate with the concrete error. Never lower a
      threshold, skip an asset, or edit pipeline code to force a green.
 
-4. Report: final GLB at `5.7/facescan-glb/docs/characters/<id>/<id>.glb`, with size
+4. Report: final GLB at `docs/characters/<id>/<id>.glb`, with size
    and tri count from `03-glb/glb_manifest.json`, and the local view URL
    (`python tools/serve_nocache.py 8000`, then `/characters/<id>/?tune=1`).
 

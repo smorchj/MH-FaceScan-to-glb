@@ -13,7 +13,9 @@ import socketserver
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
+# Site is the REPO ROOT /docs (tools/ is <repo>/5.7/facescan-glb/tools, go up 3).
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ROOT = os.path.join(_REPO, "docs")
 os.chdir(ROOT)
 
 

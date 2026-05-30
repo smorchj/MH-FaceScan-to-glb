@@ -397,7 +397,7 @@ def _update_char_manifest(char_dir: Path, status: str, errors: list[str]) -> Non
         stage["completed_at"] = None
     stage["status"] = status
     stage["errors"] = errors
-    stage.setdefault("output_dir", "../../docs/characters/")
+    stage.setdefault("output_dir", "../../../../docs/characters/")
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -415,7 +415,9 @@ def main() -> int:
     workspace = Path(args.workspace)
     char_dir = workspace / "characters" / args.char
     templates = workspace / "stages" / "04-webview-build" / "templates"
-    docs = workspace / "docs"
+    # Published site lives at the REPO ROOT /docs (so GitHub Pages can serve it),
+    # not inside the pipeline. workspace is <repo>/5.7/facescan-glb, so go up two.
+    docs = workspace.parent.parent / "docs"
 
     glb_src = char_dir / "03-glb" / f"{args.char}.glb"
     if not glb_src.exists():

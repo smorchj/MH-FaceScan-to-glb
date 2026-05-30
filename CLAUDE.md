@@ -21,13 +21,13 @@ stage source.
 ## Layout
 
 ```
+docs/                published viewer site (served by GitHub Pages)
+_config/pipeline.yaml  shared UE + Blender paths
 5.7/facescan-glb/
   RUN.md             operator entry point
   tools/             run_pipeline.ps1, bootstrap_character.py, serve_nocache.py
   stages/00..04/     each: CONTEXT.md (contract) + tools/ (launcher + scripts)
   characters/<id>/   manifest.json + stage outputs (gitignored)
-  docs/              published viewer site
-_config/pipeline.yaml  shared UE + Blender paths
 ```
 
 ## Rules

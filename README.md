@@ -20,7 +20,7 @@ the happy path; it only re-enters if a stage fails.
 04  viewer build         three.js site into docs/            (~5 s)
 ```
 
-Output: `5.7/facescan-glb/docs/characters/<id>/<id>.glb` (~40 MB).
+Output: `docs/characters/<id>/<id>.glb` (~40 MB).
 
 ## Setup
 
@@ -52,12 +52,12 @@ Open `http://localhost:8000/characters/<id>/?tune=1` for the tuning panel
 ## Layout
 
 ```
+docs/               published viewer site (GitHub Pages)
 5.7/facescan-glb/
   RUN.md            operator entry point
   tools/            run_pipeline.ps1, bootstrap_character.py, serve_nocache.py
   stages/00..04/    each: CONTEXT.md (contract) + tools/
   characters/<id>/  manifest.json + stage outputs (gitignored)
-  docs/             published viewer site
 ```
 
 ## How it works
