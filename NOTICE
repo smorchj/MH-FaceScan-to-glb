@@ -1,0 +1,24 @@
+NOTICE
+======
+
+This repository contains two kinds of content under different licenses.
+
+1. Pipeline code  (MIT)
+   All source code (Python, PowerShell, JavaScript, templates, configs, and the
+   documentation) is licensed under the MIT License in LICENSE.
+
+2. MetaHuman character assets  (Epic Games license, NOT MIT)
+   The bundled character assets are derived from Epic Games' MetaHuman and are
+   subject to Epic's MetaHuman license and the Unreal Engine End User License
+   Agreement (https://www.unrealengine.com/eula), not the MIT License above.
+   These include, but are not limited to:
+
+     - docs/characters/sander_head__3_/sander_head__3_.glb
+     - docs/characters/sander_head__3_/textures/*
+     - docs/characters/sander_head__3_/mh_materials.json
+     - docs/characters/*/preview.png and */thumbnail.png
+     - assets/sander-demo.jpg  (a render of the MetaHuman)
+
+   They are included solely to demonstrate the pipeline. The MIT License does not
+   grant any rights to these assets. Use of MetaHuman content is governed by
+   Epic's terms; do not redistribute the assets except as those terms permit.

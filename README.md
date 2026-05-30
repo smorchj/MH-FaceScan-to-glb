@@ -85,4 +85,10 @@ docs/               published viewer site (GitHub Pages)
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+The **pipeline code** is MIT. See [LICENSE](LICENSE).
+
+The **MetaHuman character assets** are not. The committed GLB, textures, and
+render images (`docs/characters/sander_head__3_/`, `assets/sander-demo.jpg`, any
+preview/thumbnail PNGs) are derived from Epic Games' MetaHuman and are covered by
+Epic's MetaHuman license and the Unreal Engine EULA, NOT MIT. They are included
+only to demonstrate the pipeline. See [NOTICE](NOTICE).
