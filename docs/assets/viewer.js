@@ -118,12 +118,7 @@ export async function mount(container, opts) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
-  // Runtime shadow maps are OFF. On a detailed bust at this scale they were
-  // unavoidably hard/low-res and the frustum clipped the head's shadow into
-  // blocky patches on the neck/shirt as the key light moved. Form comes from
-  // the lighting (n.l) plus the baked scalp/hair/contact AO in COLOR_0 instead,
-  // which is artifact-free at any light or camera angle.
-  renderer.shadowMap.enabled = false;
+  renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
   renderer.domElement.style.display = 'block';
@@ -146,6 +141,12 @@ export async function mount(container, opts) {
   const keyLight = new THREE.DirectionalLight(0xfff4e8, 3.6);
   keyLight.position.set(-0.797, 4.2, 2.514);    // upper-left key (direction is
                                                 // re-normalised by model-fit)
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(4096, 4096);
+  keyLight.shadow.bias = -0.0003;
+  keyLight.shadow.normalBias = 0.01;   // 0.015+ over-offsets and detaches the
+                                       // shadow into blotchy patches on the chest
+  keyLight.shadow.radius = 8;
   scene.add(keyLight);
   const fillLight = new THREE.DirectionalLight(0xcfe0ff, 2.05);
   fillLight.position.set(1.6, 0.1, 1.0);    // cool fill from the right (opp. key)
@@ -175,20 +176,42 @@ export async function mount(container, opts) {
   ]);
 
   scene.add(gltf.scene);
-  // Fit the lighting to the model bounds: aim every light at the centre and
-  // place it at a consistent distance so the key/fill/rim read the same
-  // regardless of model size. (No shadow camera: runtime shadows are off.)
+  // Opaque meshes cast + receive shadows. Hair does NOT cast (set in
+  // patchMaterials): thin strands alias in the shadow map, so its soft contact
+  // shadow comes from baked AO instead.
+  gltf.scene.traverse((o) => {
+    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+  });
+
+  // Fit the lighting, and fit the key-light shadow to the FRAMED BUST.
   {
     const box = new THREE.Box3().setFromObject(gltf.scene);
     const ctr = box.getCenter(new THREE.Vector3());
     const sz = box.getSize(new THREE.Vector3());
     const r = 0.6 * Math.max(sz.x, sz.y, sz.z) || 0.6;
+
+    // Shadow subject = head + visible chest, on a sphere centred up near the
+    // head (NOT the full-body centre, which is the waist). An ortho frustum
+    // sized to that sphere contains both the caster (head) and the receiver
+    // (shirt) from ANY light direction, so the head's shadow can never swing
+    // past the frustum edge and clip into a hard block as the key light moves.
+    const subjR = 0.26 * sz.y || 0.45;
+    const subjCtr = new THREE.Vector3(ctr.x, box.max.y - subjR, ctr.z);
+
     for (const L of [keyLight, fillLight, rimLight]) {
       const dir = L.position.clone().normalize();
-      L.position.copy(ctr).addScaledVector(dir, r * 4);
-      L.target.position.copy(ctr);
+      const aim = (L === keyLight) ? subjCtr : ctr;   // key aims at the bust
+      L.position.copy(aim).addScaledVector(dir, r * 4);
+      L.target.position.copy(aim);
       scene.add(L.target);
     }
+
+    const sc = keyLight.shadow.camera;
+    const F = subjR * 1.3;                 // frustum half, with margin
+    sc.left = -F; sc.right = F; sc.top = F; sc.bottom = -F;
+    sc.near = r * 4 - subjR * 1.5;
+    sc.far  = r * 4 + subjR * 1.5;
+    sc.updateProjectionMatrix();
   }
 
   // Per-character bone pose fixups — MH garments with simulated elements
@@ -266,7 +289,7 @@ export async function mount(container, opts) {
     try { renderer.compile(scene, camera); } catch (e) { console.warn('[viewer] precompile', e); }
     buildHairTunePanel(container, hairMats, {
       lights: { key: keyLight, fill: fillLight, rim: rimLight },
-      scene, skinMats, THREE,
+      scene, skinMats, THREE, renderer,
     });
   }
 
@@ -1185,6 +1208,25 @@ function buildHairTunePanel(container, hairMats, ctx = {}) {
     }
   }
 
+  // --- shadow section: the key light's realtime shadow map ---
+  if (L.key && L.key.castShadow) {
+    addSectionHeader(body, 'shadow');
+    const sc = L.key.shadow.camera;
+    const bump = () => { if (ctx.renderer) ctx.renderer.shadowMap.needsUpdate = true; };
+    // bias is tiny; expose it in 0.0001 units so the readout is legible.
+    addSlider(body, 'sh bias', 0.0, 30.0, 1.0, -L.key.shadow.bias / 0.0001,
+              (v) => { L.key.shadow.bias = -v * 0.0001; bump(); });
+    // normalBias is the main shadow-acne killer (raise it to clear the blotches).
+    addSlider(body, 'sh nbias', 0.0, 0.12, 0.002, L.key.shadow.normalBias,
+              (v) => { L.key.shadow.normalBias = v; bump(); });
+    addSlider(body, 'sh radius', 0.0, 30.0, 0.5, L.key.shadow.radius,
+              (v) => { L.key.shadow.radius = v; bump(); });
+    // frustum half-extent: smaller = tighter + higher-res, larger = covers more.
+    addSlider(body, 'sh size', 0.2, 1.5, 0.02, sc.top,
+              (v) => { sc.left = -v; sc.right = v; sc.top = v; sc.bottom = -v;
+                       sc.updateProjectionMatrix(); bump(); });
+  }
+
   // --- skin section: live baked-AO intensity + skin specular ---
 
   const skinMats = ctx.skinMats || [];
@@ -1402,6 +1444,15 @@ function buildHairTunePanel(container, hairMats, ctx = {}) {
     if (L.key && L.key.target) {
       out._lighting.key_pos = ['x', 'y', 'z'].reduce((o, k) => {
         o[k] = +L.key.position[k].toFixed(3); return o; }, {});
+    }
+    if (L.key && L.key.castShadow) {
+      const sh = L.key.shadow;
+      out._shadow = {
+        bias:       +sh.bias.toFixed(5),
+        normalBias: +sh.normalBias.toFixed(3),
+        radius:     +sh.radius.toFixed(1),
+        frustum:    +sh.camera.top.toFixed(2),
+      };
     }
     out._skin = {
       ao_amount:   +(skinMats[0]?.userData?.skinUniforms?.uAOStrength?.value ?? 0.46).toFixed(2),
