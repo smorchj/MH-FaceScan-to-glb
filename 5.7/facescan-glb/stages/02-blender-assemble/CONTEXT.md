@@ -1,144 +1,74 @@
-# Stage 02 / 5.7 facescan-glb — Blender Assemble + ARKit Bake
+# Stage 02 / 5.7 facescan-glb: Blender Assemble + ARKit + AO Bake
 
-Headless Blender stage. Imports the per-mesh GLBs from stage 01, bakes
-51 ARKit shape keys onto the face mesh from the Sequencer-bake LSE FBX,
-propagates those shape keys onto facial-groom card meshes (eyebrows /
-mustache / beard), wires up hair-card materials from sidecar textures,
-and saves a `.blend` for stage 03.
+Headless Blender. Imports stage 01's per-mesh GLBs, bakes 51 ARKit shape
+keys onto the face mesh (and propagates them to eyebrow / mustache /
+beard cards), wires hair-card materials, bakes Cycles ambient occlusion
+into face vertex colors, and saves a `.blend` for stage 03.
 
 ## Scope (hard rule)
 
-You run this stage's launcher and verify its outputs. Nothing else.
-
-Do **not** modify pipeline code: `stages/*/tools/*.py`, `tools/*.ps1`,
-`_config/`, `RUN.md`, `CLAUDE.md`. If a script throws or produces wrong
-output, surface the actual error to the operator. Silently working
-around it (try/except around imports, skipping failed assets, lowering
-thresholds) turns a fixable bug into an invisible regression. Do not
-touch other stages' contracts, code, or manifest blocks, or other
-characters' artifacts.
+Run this stage's launcher and verify outputs. Nothing else. Do not edit
+pipeline code (`stages/*/tools/*`, `tools/*.ps1`, `_config/`, `RUN.md`,
+`CLAUDE.md`), other stages' contracts, or other characters' artifacts. If
+a script errors, surface the real error. Do not work around it (no
+try/except swallowing, no skipping assets, no lowering thresholds). Touch
+only the `stages.02_blender_assemble` manifest block.
 
 ## Inputs
 
-| Source | File / Location | Section | Why |
-|---|---|---|---|
-| Workspace config | `_config/pipeline.yaml` | `blender_exe` | Blender executable path |
-| Character manifest | `characters/<id>/manifest.json` | `character_id` | Identify the character only — DO NOT read or modify other stages' status fields |
-| Stage 01 manifest | `characters/<id>/01-glb/mh_manifest.json` | `assets[]`, `arkit_sources`, `sidecar_textures`, `groom_materials` | What to import + ARKit source paths + groom MI params |
-| Stage 01 GLBs | `characters/<id>/01-glb/*.glb` | all | Per-mesh geometry + textures (no morphs in this pass) |
-| Stage 01 LSE FBX | `characters/<id>/01-glb/LS_arkit_full.fbx` | full | Mesh + skeleton + per-pose bone keyframes — the ARKit shape-key source |
-| Stage 01 pose list | `characters/<id>/01-glb/arkit_pose_names.json` | full | Maps frame N → ARKit pose name |
-| Stage 01 textures | `characters/<id>/01-glb/textures/*.png` | hair / brow / lash atlases | Wired onto reconstructed groom materials |
+| Source | File | Use |
+|---|---|---|
+| Workspace config | `_config/pipeline.yaml` | `blender_exe` path |
+| Char manifest | `characters/<id>/manifest.json` | `character_id` only (do not read other stages' status) |
+| Stage 01 manifest | `characters/<id>/01-glb/mh_manifest.json` | `assets[]`, sidecar textures, groom params |
+| Stage 01 GLBs | `characters/<id>/01-glb/*.glb` | per-mesh geometry + textures |
+| Stage 01 LSE FBX | `characters/<id>/01-glb/LS_arkit_full.fbx` | ARKit shape-key source (must be > 5 MB) |
+| Stage 01 pose list | `characters/<id>/01-glb/arkit_pose_names.json` | frame N to ARKit pose name |
+| Stage 01 textures | `characters/<id>/01-glb/textures/*.png` | hair / brow / lash atlases |
 
-## Preconditions (file existence only)
-
-Verify the following files exist on disk before running. Do **not** read
-prior-stage `status` fields from the manifest — manifest state can be
-stale; files on disk are ground truth:
-
-- `characters/<id>/01-glb/mh_manifest.json`
-- `characters/<id>/01-glb/LS_arkit_full.fbx` (must be > 5 MB)
-- `characters/<id>/01-glb/arkit_pose_names.json`
-
-If any input is missing, abort with an actionable message ("stage 01
-output missing: <path> — run stage 01 first"). Do **not** attempt to
-fix or retroactively mark other stages' status.
+Verify these files exist on disk before running (files are ground truth,
+not manifest status). If any is missing, abort with an actionable message
+("stage 01 output missing: <path>, run stage 01 first").
 
 ## Process
 
-1. Read `_config/pipeline.yaml` to learn `blender_exe`.
-2. Invoke launcher: `tools/run_assemble.ps1 -Char <id>`. It resolves
-   `blender_exe` from `_config/pipeline.yaml` and runs:
-   ```
-   <blender_exe> --background --python <abs>/tools/import_glb.py -- --char <id> --workspace <abs pipeline root>
-   ```
-3. Launcher blocks until Blender exits. Exit code must be 0.
-4. The script does (in order):
-   - Import every GLB listed in `mh_manifest.assets[]` into a clean scene.
-   - Hide non-LOD0 / collision meshes.
-   - Bake 51 ARKit shape keys onto the face mesh via
-     `_bake_arkit_from_lse_fbx`: import LSE FBX, scrub frame N for pose N
-     (1:1 mapping at 24fps bake), capture deformed mesh via
-     `evaluated_get(depsgraph)`, transfer to the GLB face by kdtree
-     position match (max=0.00mm; same UE SKM, same topology, perfect
-     vertex correspondence).
-   - Propagate the face's ARKit shape keys onto groom card meshes
-     (`Eyebrows_*`, `Mustache_*`, `Beard_*`, `Stubble_*`, …) via k=4
-     inverse-distance² weighting in world space (see
-     `_apply_arkit_to_grooms`). Eyelashes are NOT a separate mesh — they
-     live as a material slot on the face mesh and inherit shape keys
-     for free.
-   - Reconstruct hair-card / eyebrow / lash materials using sidecar
-     atlases + groom MI params (`_wire_card_materials`).
-   - Tune invisible MH face slots (eyeShell, M_Hide, lacrimal, saliva)
-     to fully transparent Principled BSDF so they don't paint over
-     irises.
-   - Parent hair-card StaticMeshes to the face armature's head bone so
-     they track head motion.
-   - Emit `mh_materials.json` (used by stage 04 viewer for hair / lash
-     shader injection).
-5. Verify outputs (Outputs table). Required: `<id>.blend`, `mh_materials.json`,
-   `blend_manifest.json`.
-6. Update `characters/<id>/manifest.json` — **only** the
-   `stages.02_blender_assemble` block. Do not read, modify, or "fix"
-   any other stage's status, timestamps, or errors. The dispatcher
-   (Opus) owns those fields:
-   - `stages.02_blender_assemble.status = "done"` on success
-   - `stages.02_blender_assemble.started_at = <ISO timestamp at launch>`
-   - `stages.02_blender_assemble.completed_at = <ISO timestamp at finish>`
-   - `stages.02_blender_assemble.errors = []`
-7. On failure: `stages.02_blender_assemble.status = "failed"`, append
-   actionable message to `stages.02_blender_assemble.errors[]`, leave
-   artifacts in place. Still touch only this stage's block.
+1. Read `blender_exe` from `_config/pipeline.yaml`.
+2. Run launcher: `tools/run_assemble.ps1 -Char <id>`. It invokes
+   `<blender_exe> --background --python tools/import_glb.py -- --char <id> --workspace <root>`
+   and blocks until Blender exits. Exit code must be 0.
+3. The script, in order:
+   - Imports every GLB in `mh_manifest.assets[]`; hides non-LOD0 / collision meshes.
+   - Bakes 51 ARKit shape keys onto the face mesh: replays the LSE FBX
+     bone animation per frame, captures the deformed mesh, transfers to
+     the GLB face by kdtree position match (same UE SKM, 0.00mm).
+   - Propagates those shape keys onto groom card meshes (eyebrows,
+     mustache, beard, stubble) via k=4 inverse-distance weighting.
+     Eyelashes ride along as a face material slot.
+   - Reconstructs hair-card / brow / lash materials from sidecar atlases.
+   - Bakes Cycles AO into the face mesh COLOR_0 (the viewer multiplies it
+     into skin): channel R = broad hemisphere AO (hair cards as
+     occluders), channel G = a tight hair-root / scalp contact layer
+     (proximity to hair-card verts). B unused.
+   - Parents hair-card meshes to the head bone.
+   - Emits `mh_materials.json` for the stage 04 viewer.
+4. Verify outputs, then set `stages.02_blender_assemble`: `status="done"`,
+   `started_at`, `completed_at`, `errors=[]`. On failure set
+   `status="failed"` and append an actionable message to `errors[]`,
+   leaving artifacts in place. Only ever touch this stage's block.
 
 ## Outputs
 
-| Artifact | Location | Notes |
-|---|---|---|
-| Assembled blend | `characters/<id>/02-blend/<id>.blend` | All meshes imported; non-LOD0 hidden; face mesh + groom cards have 51 ARKit shape keys; hair-card materials reconstructed from sidecar atlases. |
-| Material spec | `characters/<id>/02-blend/mh_materials.json` | Schema matches 5.6/cinematic so stage 04's viewer.js handles hair / lash injection without changes. |
-| Scene manifest | `characters/<id>/02-blend/blend_manifest.json` | Machine-readable summary: imported count, mesh names, armature names, hair_parented count. |
-| Updated char manifest | `characters/<id>/manifest.json` | `stages.02_blender_assemble` fields |
+| Artifact | Location |
+|---|---|
+| Assembled blend | `characters/<id>/02-blend/<id>.blend` |
+| Material spec | `characters/<id>/02-blend/mh_materials.json` |
+| Scene manifest | `characters/<id>/02-blend/blend_manifest.json` |
+| Updated char manifest | `characters/<id>/manifest.json` (this stage's block only) |
 
-## Why bake ARKit shape keys here (not in UE)
+## Idempotency / failure modes
 
-Stage 01 has the LSE FBX with bone keyframes that resolve RigLogic.
-This stage replays that animation in Blender, captures deformed mesh
-per frame, and writes them as static morph targets on the GLB face.
-That's the only path that round-trips bone-driven ARKit motion into
-glTF morph targets (UE GLTFExporter can't bake animation to morphs;
-FBX morph keyframes don't round-trip cleanly).
-
-The kdtree match is `0.00mm` because the LSE FBX face mesh and the GLB
-face mesh come from the same UE SkeletalMesh — same topology, same
-vertex count (34657). UV-seam vertices land at identical positions
-across both export formats; the kdtree just lets us map between the two
-exporters' arbitrary vertex orderings without assuming index equality.
-
-## Why the groom prop is k=4 inverse-distance²
-
-Ported from 5.6/cinematic apply_arkit52_grooms.py. k=1 (nearest vert)
-pops at seams; k=8 over-smooths and kills corner definition. With
-inverse-distance² weights, a groom vert sitting on a face vert (d≈0)
-gets ~100% of that face vert's delta; a vert drifting between two face
-verts gets a clean blend.
-
-Eyebrows_* card mesh has ~6429 verts sitting ~1.6mm avg from the face
-surface. Real ARKit shapes activate ~46 of the 51 keys on the eyebrow
-card (5 are skipped because all-zero in the brow region — jawForward,
-mouthFunnel, etc.).
-
-## Idempotency
-
-Unconditional overwrite of `characters/<id>/02-blend/`. No prior-state
-read. Re-running is safe.
-
-## Failure modes (known)
-
-- `mh_manifest.json` missing → stage 01 hasn't run. Ask operator.
-- LSE FBX missing → stage 01 didn't produce it. Check stage 01 logs for
-  `Sequencer bake exception`.
-- LSE FBX import produces no MESH → file corrupted or empty bake. Check
-  file size (~46 MB expected).
-- kdtree match max > 5mm → LSE face and GLB face came from different
-  SKM builds. Re-run stage 01 to get a consistent pair.
+Unconditional overwrite of `02-blend/`, re-running is safe. Common
+failures: missing `mh_manifest.json` or LSE FBX (stage 01 did not run or
+did not bake), LSE import yields no MESH (corrupt / empty bake), kdtree
+match max > 5mm (LSE and GLB faces from different SKM builds, re-run
+stage 01).

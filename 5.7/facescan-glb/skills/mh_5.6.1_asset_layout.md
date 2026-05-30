@@ -5,13 +5,13 @@ MetaHuman character lives in `/Game/MetaHumans/<CharName>/`. Structure:
 
 ```
 /Game/MetaHumans/<CharName>/
-  BP_<CharName>                       # Actor blueprint — entry point
+  BP_<CharName>                       # Actor blueprint, entry point
   Body/                               # per-char body variant assets (if any)
   Face/
     Mesh/Face_LOD0_Mesh               # per-char head skeletal mesh
     Textures/                         # per-char head textures (BaseColor, Normal, Roughness, etc.)
   Materials/                          # per-char material instances (derived from Common)
-/Game/MetaHumans/Common/                 # SHARED across all MHs — export once per archetype
+/Game/MetaHumans/Common/                 # SHARED across all MHs, export once per archetype
   Female/Medium/NormalWeight/Body/
     metahuman_base_skel              # THE skeleton (used by all chars, all genders!)
     f_med_nrw_body                   # body skeletal mesh by archetype
@@ -33,7 +33,7 @@ children:
    │       ├── Eyes (L/R)
    │       └── Eyelashes
 
-Walk the component tree — don't just export the top node.
+Walk the component tree, don't just export the top node.
 
 ## Hidden geometry per LOD
 
@@ -50,5 +50,5 @@ the exporter dedupes shared exports per archetype per run.
 ## Skeleton
 
 One skeleton for all MHs: `/Game/MetaHumans/Common/Female/Medium/NormalWeight/Body/metahuman_base_skel`
-— counterintuitively under the Female path, but used by male chars too. Export once,
+counterintuitively under the Female path, but used by male chars too. Export once,
 manifest references it, stages 02+ reuse.

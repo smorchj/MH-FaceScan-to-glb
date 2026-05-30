@@ -186,7 +186,7 @@ def main():
     # `C:/Program Files/Git/Game/...` from a Git Bash invocation.
     asset_for_readme = _strip_shell_prefix(args.asset) if args.asset else None
     with open(readme, "w", encoding="utf-8") as f:
-        f.write(f"# {char_id} — source (5.7 facescan-glb)\n\n")
+        f.write(f"# {char_id}: source (5.7 facescan-glb)\n\n")
         if asset_for_readme:
             f.write(f"Original asset path: `{asset_for_readme}`\n\n")
         f.write(f"UE folder: `{mh_folder}`\n")

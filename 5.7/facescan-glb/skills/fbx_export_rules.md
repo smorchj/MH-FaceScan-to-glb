@@ -6,7 +6,7 @@
    lands offset in Blender. Reset per-component before running `AssetExportTask`.
 2. **LOD0 only** for v1. Disable "Level of Detail" in `FbxExportOption`.
 3. **Bake Material Inputs = false.** This flag only writes texture *names* into the FBX
-   material slots — it does not embed images. We export textures separately.
+   material slots, it does not embed images. We export textures separately.
 4. **Vertex colors on.** MH meshes use vertex color for mask data; preserve.
 5. **Morph targets on.** Face blendshapes are part of the rig; we want them in the FBX
    for stage 02, even if stage 03 drops them for the web build.

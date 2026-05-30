@@ -1,4 +1,4 @@
-# ada — source (5.7 facescan-glb)
+# ada source (5.7 facescan-glb)
 
 Original asset path: `/Game/Ada/MHC_Ada`
 
