@@ -173,6 +173,20 @@ def _build_gallery(
     built_at: str,
 ) -> int:
     published = _discover_published_characters(workspace)
+    # Single-character site (e.g. the FaceScan demo): the gallery menu is just an
+    # extra hop, so send the root straight to that character's viewer.
+    if len(published) == 1:
+        cid = published[0]
+        (docs / "index.html").write_text(
+            '<!DOCTYPE html>\n<html><head><meta charset="utf-8">\n'
+            f'<meta http-equiv="refresh" content="0; url=characters/{cid}/">\n'
+            f'<link rel="canonical" href="characters/{cid}/">\n'
+            '<title>MH-FaceScan to GLB</title></head>\n'
+            f'<body style="background:#0a0a0f;color:#888;font:14px system-ui;padding:2rem">\n'
+            f'Redirecting to <a href="characters/{cid}/" style="color:#7ab8ff">the viewer</a>...\n'
+            '</body></html>\n',
+            encoding="utf-8")
+        return len(published)
     # Group cards by gallery category. The category comes from the
     # character manifest's optional `gallery_category` field (set at
     # bootstrap or by the operator); characters without one fall into
@@ -397,7 +411,7 @@ def _update_char_manifest(char_dir: Path, status: str, errors: list[str]) -> Non
         stage["completed_at"] = None
     stage["status"] = status
     stage["errors"] = errors
-    stage.setdefault("output_dir", "../../../../docs/characters/")
+    stage.setdefault("output_dir", "../../docs/characters/")
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -415,9 +429,7 @@ def main() -> int:
     workspace = Path(args.workspace)
     char_dir = workspace / "characters" / args.char
     templates = workspace / "stages" / "04-webview-build" / "templates"
-    # Published site lives at the REPO ROOT /docs (so GitHub Pages can serve it),
-    # not inside the pipeline. workspace is <repo>/5.7/facescan-glb, so go up two.
-    docs = workspace.parent.parent / "docs"
+    docs = workspace / "docs"
 
     glb_src = char_dir / "03-glb" / f"{args.char}.glb"
     if not glb_src.exists():
