@@ -137,9 +137,9 @@ export async function mount(container, opts) {
   // add a studio key + fill + rim so the model reads with depth like the UE
   // reference. Model faces +Z (camera at +Z); lights are placed in that space.
   // Defaults below are the operator-tuned rig (live panel -> copy JSON).
-  scene.environmentIntensity = 0.1;
+  scene.environmentIntensity = 0.0;
   const keyLight = new THREE.DirectionalLight(0xfff4e8, 3.6);
-  keyLight.position.set(-0.797, 4.2, 2.514);    // upper-left key (direction is
+  keyLight.position.set(-1.417, 4.588, 2.268);  // upper-left key (direction is
                                                 // re-normalised by model-fit)
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.set(4096, 4096);
@@ -434,10 +434,10 @@ function injectAOControl(mat) {
   const prevOBC = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader) => {
     if (prevOBC) prevOBC(shader);
-    shader.uniforms.uAOStrength = { value: 0.46 };
-    shader.uniforms.uAOFloor    = { value: 0.0 };
-    shader.uniforms.uAOContrast = { value: 1.3 };
-    shader.uniforms.uRootAOStrength = { value: 0.7 };
+    shader.uniforms.uAOStrength = { value: 0.49 };
+    shader.uniforms.uAOFloor    = { value: 0.46 };
+    shader.uniforms.uAOContrast = { value: 2.25 };
+    shader.uniforms.uRootAOStrength = { value: 0.64 };
     mat.userData.skinUniforms = shader.uniforms;
     shader.fragmentShader =
       'uniform float uAOStrength;\nuniform float uAOFloor;\nuniform float uAOContrast;\nuniform float uRootAOStrength;\n'
@@ -1244,18 +1244,18 @@ function buildHairTunePanel(container, hairMats, ctx = {}) {
       }
     };
     const su0 = skinMats[0]?.userData?.skinUniforms || {};
-    addSlider(body, 'AO amount', 0.0, 1.5, 0.01, su0.uAOStrength?.value ?? 0.46,
+    addSlider(body, 'AO amount', 0.0, 1.5, 0.01, su0.uAOStrength?.value ?? 0.49,
               (v) => setSkinUniform('uAOStrength', v));
     // Erodes the faint, furthest edge of the AO first. Raising it shrinks the
     // AO reach toward the contact (the weak/distant occlusion drops out before
     // the strong AO near the hair). 0 = full AO.
-    addSlider(body, 'AO floor', 0.0, 1.0, 0.01, su0.uAOFloor?.value ?? 0.0,
+    addSlider(body, 'AO floor', 0.0, 1.0, 0.01, su0.uAOFloor?.value ?? 0.46,
               (v) => setSkinUniform('uAOFloor', v));
-    addSlider(body, 'AO contrast', 0.3, 2.5, 0.01, su0.uAOContrast?.value ?? 1.3,
+    addSlider(body, 'AO contrast', 0.3, 2.5, 0.01, su0.uAOContrast?.value ?? 2.25,
               (v) => setSkinUniform('uAOContrast', v));
     // Independent control of the hair-cast AO on the scalp (COLOR_0.G, the
     // tight hair-root/scalp contact layer). 0 = off, 1 = full, >1 = deepen.
-    addSlider(body, 'hair AO', 0.0, 1.5, 0.01, su0.uRootAOStrength?.value ?? 0.7,
+    addSlider(body, 'hair AO', 0.0, 1.5, 0.01, su0.uRootAOStrength?.value ?? 0.64,
               (v) => setSkinUniform('uRootAOStrength', v));
     addSlider(body, 'skin spec', 0.0, 1.5, 0.01,
               skinMats[0]?.specularIntensity ?? 0.99,
@@ -1460,10 +1460,10 @@ function buildHairTunePanel(container, hairMats, ctx = {}) {
       };
     }
     out._skin = {
-      ao_amount:   +(skinMats[0]?.userData?.skinUniforms?.uAOStrength?.value ?? 0.46).toFixed(2),
-      ao_floor:    +(skinMats[0]?.userData?.skinUniforms?.uAOFloor?.value ?? 0.0).toFixed(2),
-      ao_contrast: +(skinMats[0]?.userData?.skinUniforms?.uAOContrast?.value ?? 1.3).toFixed(2),
-      root_ao:     +(skinMats[0]?.userData?.skinUniforms?.uRootAOStrength?.value ?? 0.7).toFixed(2),
+      ao_amount:   +(skinMats[0]?.userData?.skinUniforms?.uAOStrength?.value ?? 0.49).toFixed(2),
+      ao_floor:    +(skinMats[0]?.userData?.skinUniforms?.uAOFloor?.value ?? 0.46).toFixed(2),
+      ao_contrast: +(skinMats[0]?.userData?.skinUniforms?.uAOContrast?.value ?? 2.25).toFixed(2),
+      root_ao:     +(skinMats[0]?.userData?.skinUniforms?.uRootAOStrength?.value ?? 0.64).toFixed(2),
       skin_spec:   +(skinMats[0]?.specularIntensity ?? 0.99).toFixed(2),
     };
 
