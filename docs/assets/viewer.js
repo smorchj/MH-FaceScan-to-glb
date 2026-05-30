@@ -456,7 +456,12 @@ function injectAOControl(mat) {
       #if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR )
         float _broad = _vc.r;                          // broad hemisphere AO
         float _root  = _vc.g;                          // tight hair-root AO
-        _broad = max( _broad, uAOFloor );              // lift deepest areas
+        // AO floor: erode the faint, furthest edge of the AO first. Work in
+        // "AO amount" (1 - factor) and subtract the floor, so the weakest /
+        // furthest occlusion drops to zero before the strong contact AO near
+        // the hair. Raising it shrinks the AO's reach toward the contact
+        // (radius smaller), instead of lifting the darkest part first.
+        _broad = 1.0 - max( 0.0, ( 1.0 - _broad ) - uAOFloor );
         _broad = pow( _broad, uAOContrast );           // reshape falloff
         // Clamp to [0,1]: without this, extrapolating past 1.0 on the crushed
         // root channel drives the multiplier negative, which hue-shifts to cyan
@@ -1241,9 +1246,9 @@ function buildHairTunePanel(container, hairMats, ctx = {}) {
     const su0 = skinMats[0]?.userData?.skinUniforms || {};
     addSlider(body, 'AO amount', 0.0, 1.5, 0.01, su0.uAOStrength?.value ?? 0.46,
               (v) => setSkinUniform('uAOStrength', v));
-    // Lifts the darkest / deepest-occluded areas (scalp, neck, cavities) — the
-    // ones crushed near-black on export. Raise this to fix "too dark" spots
-    // without washing out the subtle AO elsewhere.
+    // Erodes the faint, furthest edge of the AO first. Raising it shrinks the
+    // AO reach toward the contact (the weak/distant occlusion drops out before
+    // the strong AO near the hair). 0 = full AO.
     addSlider(body, 'AO floor', 0.0, 1.0, 0.01, su0.uAOFloor?.value ?? 0.0,
               (v) => setSkinUniform('uAOFloor', v));
     addSlider(body, 'AO contrast', 0.3, 2.5, 0.01, su0.uAOContrast?.value ?? 1.3,
