@@ -845,7 +845,19 @@ def _bake_arkit_from_5_6(in_root, mh_manifest, char_id, char_root):
     return transferred
 
 
-def _bake_arkit_from_lse_fbx(in_root, mh_manifest):
+# Per-character ARKit shape-key clamps. A character built from broken or missing
+# MetaHuman DNA can bake over-strong ARKit deltas (the rig falls back to raw pose
+# magnitudes), so some shapes over-deform. Scale those shapes down here. The value
+# is the fraction of the captured delta to keep (1.0 = unchanged).
+_ARKIT_SHAPE_CLAMP = {
+    "sander_head__3_": {
+        "eyeLookDownLeft":  0.38, "eyeLookDownRight": 0.38,
+        "eyeBlinkLeft":     0.70, "eyeBlinkRight":    0.70,
+    },
+}
+
+
+def _bake_arkit_from_lse_fbx(in_root, mh_manifest, char_id=None):
     """Bake 52 ARKit shape keys onto the GLB face mesh by replaying the
     Sequencer-baked AnimSequence and capturing per-pose deformed mesh.
 
@@ -1005,19 +1017,23 @@ def _bake_arkit_from_lse_fbx(in_root, mh_manifest):
     tgt_basis_kb = tgt_keys.key_blocks[0]
     delta_scale = SRC_LOCAL_TO_M / TGT_LOCAL_TO_M
 
+    clamp_map = _ARKIT_SHAPE_CLAMP.get(char_id, {})
     transferred = 0
     for name, src_positions in pose_shape_keys:
         existing = tgt_keys.key_blocks.get(name)
         if existing is not None:
             tgt_face.shape_key_remove(existing)
         new_kb = tgt_face.shape_key_add(name=name, from_mix=False)
+        kscale = clamp_map.get(name, 1.0)   # broken-DNA over-deform clamp
         for ti in range(n_tgt):
             si = glb_to_src[ti]
             src_delta_local = src_positions[si] - basis_positions[si]
-            tgt_delta_local = src_delta_local * delta_scale
+            tgt_delta_local = src_delta_local * delta_scale * kscale
             new_kb.data[ti].co = tgt_basis_kb.data[ti].co + tgt_delta_local
         new_kb.value = 0.0
         transferred += 1
+    if clamp_map:
+        _log(f"  arkit: clamped shapes for {char_id}: {clamp_map}")
     _log(f"  arkit: transferred {transferred} ARKit shape keys to GLB face")
 
     # ---- 6) Cleanup: drop the LSE imports ----
@@ -2051,7 +2067,7 @@ def main():
     # ARKit + 13 correctives). We replay that animation in Blender,
     # capture the deformed mesh per ARKit pose frame, and transfer to
     # the GLB face via kdtree position match.
-    baked = _bake_arkit_from_lse_fbx(in_root, mh)
+    baked = _bake_arkit_from_lse_fbx(in_root, mh, args.char)
     if baked:
         _log(f"baked {baked} ARKit shape keys onto the GLB face mesh "
              f"(via Sequencer-baked LSE FBX)")
