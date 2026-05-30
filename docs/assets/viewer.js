@@ -137,7 +137,7 @@ export async function mount(container, opts) {
   // add a studio key + fill + rim so the model reads with depth like the UE
   // reference. Model faces +Z (camera at +Z); lights are placed in that space.
   // Defaults below are the operator-tuned rig (live panel -> copy JSON).
-  scene.environmentIntensity = 0.0;
+  scene.environmentIntensity = 0.24;
   const keyLight = new THREE.DirectionalLight(0xfff4e8, 3.6);
   keyLight.position.set(-1.417, 4.588, 2.268);  // upper-left key (direction is
                                                 // re-normalised by model-fit)
